@@ -1,0 +1,10 @@
+[service]
+name = "god-tier-frontend"
+type = "npm"
+[build]
+command = "npm run build"
+[start]
+command = "node .output/server/index.mjs"
+[[routes]]
+path = "/"
+service = "god-tier-frontend"
