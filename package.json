@@ -32,6 +32,7 @@
     "xstate": "^5.26.0"
   },
   "devDependencies": {
+    "@types/fluent-ffmpeg": "^2.1.28",
     "@types/node": "^25.1.0",
     "@types/three": "^0.182.0"
   }

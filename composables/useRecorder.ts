@@ -221,6 +221,7 @@ export const useRecorder = () => {
                 sourceNode.connect(destNode)
 
                 const audioTrack = destNode.stream.getAudioTracks()[0]
+                // @ts-ignore - 'track' is required by spec but missing in some TS definitions
                 const trackProcessor = new MediaStreamTrackProcessor({ track: audioTrack })
                 const reader = trackProcessor.readable.getReader()
 

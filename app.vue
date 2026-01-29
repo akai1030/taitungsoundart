@@ -34,33 +34,41 @@
       <!-- REVIEW STATE -->
       <transition name="up">
         <div v-if="state === 'REVIEW'" class="review-screen">
+          
+          <!-- Animated Background Mesh (CSS) -->
+          <div class="bg-mesh"></div>
+
+          <div class="header">
+            <h2 class="collab-title">臺東聲音藝術節 <span class="x">✕</span> 轉駅創研試驗所</h2>
+            <div class="decoration-line"></div>
+          </div>
+
           <div class="preview-container">
             <video ref="previewVideo" autoplay loop playsinline controls></video>
-            
-            <!-- Frame Overlay (Visual Only) -->
-            <img 
-              v-if="selectedFrame" 
-              :src="selectedFrame" 
-              class="frame-overlay" 
-            />
+            <img v-if="selectedFrame" :src="selectedFrame" class="frame-overlay" />
           </div>
 
           <div class="frame-selector">
-            <button @click="selectedFrame = null" :class="{ active: !selectedFrame }">None</button>
-            <button @click="selectedFrame = '/frames/frame_01.png'" :class="{ active: selectedFrame?.includes('01') }">Frame 1</button>
-            <button @click="selectedFrame = '/frames/frame_02.png'" :class="{ active: selectedFrame?.includes('02') }">Frame 2</button>
+             <div class="label">SELECT FRAME</div>
+             <div class="options">
+                <button @click="selectedFrame = null" :class="{ active: !selectedFrame }">None</button>
+                <button @click="selectedFrame = '/frames/frame_01.png'" :class="{ active: selectedFrame?.includes('01') }">Style A</button>
+                <button @click="selectedFrame = '/frames/frame_02.png'" :class="{ active: selectedFrame?.includes('02') }">Style B</button>
+             </div>
           </div>
 
           <div class="actions">
-             <button class="btn secondary" @click="reset">Discard</button>
+             <button class="btn secondary" @click="reset">
+                <span class="icon">↺</span> 重錄
+             </button>
              
-             <!-- Share Button (Mobile Only usually) -->
+             <!-- Share Button -->
              <button v-if="canShare" class="btn primary highlight" @click="shareVideo" :disabled="isProcessing">
-               {{ isProcessing ? 'Processing...' : 'Share to IG' }}
+               {{ isProcessing ? '處理中...' : '分享 IG 限動' }}
              </button>
 
              <button class="btn primary" @click="downloadVideo" :disabled="isProcessing">
-               {{ isProcessing ? 'Processing...' : 'Download' }}
+               {{ isProcessing ? '處理中...' : '下載影片' }}
              </button>
           </div>
         </div>
@@ -83,24 +91,22 @@ const canShare = ref(false)
 
 onMounted(() => {
   // Check Share Support
-  if (navigator.share && navigator.canShare) {
+  // Use explicit typeof check to satisfy linter and ensure runtime safety
+  if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function') {
     canShare.value = true
   }
 })
 
 const enterExperience = async () => {
-  // Audio context is likely started by the first touch inside TheExperience logic
   state.value = 'PLAY'
 }
 
 const toggleRecording = async () => {
   if (state.value === 'PLAY') {
-    // Start Recording
     state.value = 'RECORDING'
     timeLeft.value = 10
     await experienceRef.value?.startRecording()
     
-    // Start Timer
     timerInterval = setInterval(async () => {
       timeLeft.value--
       if (timeLeft.value <= 0) {
@@ -109,7 +115,6 @@ const toggleRecording = async () => {
     }, 1000)
     
   } else {
-    // Stop Manually
     await stopRecording()
   }
 }
@@ -140,7 +145,6 @@ const getFinalBlob = async () => {
   
   isProcessing.value = true
   try {
-     // Create FormData
      const formData = new FormData()
      formData.append('video', recordedBlob.value, 'recording.webm')
      if (selectedFrame.value) {
@@ -149,7 +153,6 @@ const getFinalBlob = async () => {
 
      console.log('Uploading to server for processing...')
      
-     // Call API
      const response = await fetch('/api/process-video', {
          method: 'POST',
          body: formData
@@ -164,7 +167,6 @@ const getFinalBlob = async () => {
 
   } catch (e) {
      console.error('Processing failed', e)
-     // Fallback to raw if server fails
      const confirmRaw = confirm('雲端轉檔失敗 (可能是網路問題)。是否下載原始錄影檔？')
      if (confirmRaw) {
          return recordedBlob.value 
@@ -180,10 +182,8 @@ const shareVideo = async () => {
   const blob = await getFinalBlob()
   if (!blob) return
   
-  // UX Enhancement: Auto-copy link for IG Link Sticker
   try {
     await navigator.clipboard.writeText(window.location.href)
-    // Optional: Small toast could go here, but we'll rely on the system share sheet delay or a quick alert
   } catch (err) {
     console.log('Clipboard write failed', err)
   }
@@ -195,7 +195,7 @@ const shareVideo = async () => {
       await navigator.share({
         files: [file],
         title: 'Sound Art',
-        text: 'Check out my sound creation! (Link copied to clipboard)' // Hint in text too
+        text: 'Check out my sound creation! (Link copied to clipboard)'
       })
     } catch (e) {
       console.log('Share canceled or failed', e)
@@ -221,13 +221,16 @@ const downloadVideo = async () => {
 </script>
 
 <style lang="scss">
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;500;700&display=swap');
+
 .app-container {
   width: 100vw;
   height: 100vh;
   position: relative;
   background: #000;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans TC', sans-serif;
   color: white;
+  overflow: hidden;
 }
 
 .ui-layer {
@@ -238,6 +241,7 @@ const downloadVideo = async () => {
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  z-index: 10;
 }
 
 // Controls
@@ -248,6 +252,22 @@ const downloadVideo = async () => {
 .intro-screen {
   text-align: center;
   cursor: pointer;
+  
+  h1 {
+    font-size: 3rem;
+    font-weight: 100;
+    letter-spacing: 5px;
+    background: linear-gradient(to right, #fff, #888);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  
+  .subtitle {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 10px;
+    animation: flash 2s infinite;
+  }
 }
 
 .controls {
@@ -256,126 +276,211 @@ const downloadVideo = async () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 15px;
+  
+  .instruction {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 1px;
+  }
 }
 
 .rec-btn {
-  width: 70px; height: 70px;
+  width: 80px; height: 80px;
   border-radius: 50%;
-  border: 2px solid white;
-  background: transparent;
+  border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(5px);
   padding: 5px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   
   .inner {
     width: 100%; height: 100%;
-    background: #ff0000;
+    background: #ff4444;
     border-radius: 50%;
-    transition: all 0.3s;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-  
-  .timer {
-    color: white;
-    font-weight: 900;
-    font-size: 1.8rem;
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    text-shadow: 0 0 5px red;
+    box-shadow: 0 0 20px rgba(255, 68, 68, 0.3);
   }
   
   &.recording {
-    border-color: #ff0000;
-    // animation: pulse 2s infinite; // Disabling pulse to show timer clearly
+    border-color: #ff4444;
+    transform: scale(1.1);
+    
     .inner {
-      border-radius: 4px;
-      transform: scale(0.9);
-      background: rgba(255, 0, 0, 0.8);
+      border-radius: 12px;
+      transform: scale(0.5);
+      background: #ff4444;
+      box-shadow: 0 0 30px rgba(255, 68, 68, 0.6);
     }
   }
 }
 
-// Review Screen
+// Review Screen (The "Download" Screen)
 .review-screen {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.9);
+  // Glassmorphism 
+  background: rgba(10, 10, 15, 0.6); 
+  backdrop-filter: blur(20px) saturate(180%);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
-  backdrop-filter: blur(10px);
-}
-
-.preview-container {
-  position: relative;
-  width: 300px;
-  max-width: 90vw; // RWD Safety
-  height: 300px;
-  max-height: 50vh; // RWD Safety for landscape 
+  gap: 25px;
   
-  video {
-    width: 100%; height: 100%;
-    object-fit: cover;
-    background: #222;
-  }
-  
-  .frame-overlay {
+  .bg-mesh {
     position: absolute;
-    top: 20px; right: 20px;
-    width: 15%; 
-    height: auto;
-    pointer-events: none;
-    z-index: 2;
-    filter: drop-shadow(0 0 5px rgba(0,0,0,0.5));
+    inset: 0;
+    opacity: 0.2;
+    background: 
+      radial-gradient(circle at 20% 30%, rgba(100,0,255,0.4), transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(255,0,100,0.4), transparent 50%);
+    animation: flow 10s infinite alternate;
+    z-index: -1;
   }
-}
 
-.frame-selector {
-  display: flex;
-  gap: 10px;
-  
-  button {
-    background: transparent;
-    border: 1px solid #444;
-    color: #888;
-    padding: 5px 10px;
-    cursor: pointer;
+  .header {
+    text-align: center;
+    margin-bottom: 10px;
+    z-index: 2;
     
-    &.active {
-      border-color: white;
-      color: white;
+    .collab-title {
+        font-size: 1rem;
+        font-weight: 500;
+        letter-spacing: 2px;
+        color: #ddd;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        justify-content: center;
+        
+        .x { font-size: 0.7rem; color: #888; }
+    }
+    
+    .decoration-line {
+        width: 40px;
+        height: 2px;
+        background: radial-gradient(circle, white, transparent);
+        margin: 10px auto 0;
+        opacity: 0.5;
+    }
+  }
+
+  .preview-container {
+    position: relative;
+    width: 280px; 
+    max-width: 80vw;
+    aspect-ratio: 9/16; // Force standard ratio
+    height: auto;
+    max-height: 55vh;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 
+        0 20px 50px rgba(0,0,0,0.5),
+        0 0 0 1px rgba(255,255,255,0.1); // Inner border
+    
+    video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      background: #111;
+    }
+  }
+
+  .frame-selector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    
+    .label {
+        font-size: 0.6rem;
+        color: #666;
+        letter-spacing: 2px;
+        font-weight: bold;
+    }
+    
+    .options {
+        display: flex;
+        gap: 10px;
+        background: rgba(255,255,255,0.1);
+        padding: 5px;
+        border-radius: 30px;
+        
+        button {
+          background: transparent;
+          border: none;
+          color: #888;
+          padding: 8px 16px;
+          border-radius: 20px;
+          cursor: pointer;
+          font-size: 0.8rem;
+          transition: 0.3s;
+          
+          &.active {
+            background: white;
+            color: black;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+          }
+        }
+    }
+  }
+
+  .actions {
+    display: flex;
+    gap: 15px;
+    width: 100%;
+    justify-content: center;
+    padding: 0 20px;
+    
+    .btn {
+      padding: 14px 24px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.1);
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.9rem;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      
+      &:active { transform: scale(0.96); }
+      
+      &.primary { 
+        background: white; 
+        color: black; 
+        box-shadow: 0 0 20px rgba(255,255,255,0.1);
+        
+        &.highlight {
+            background: linear-gradient(135deg, #fff, #ddd);
+        }
+      }
+      
+      &.secondary { 
+        background: rgba(0,0,0,0.4); 
+        color: #aaa; 
+        backdrop-filter: blur(10px);
+        
+        &:hover { color: white; background: rgba(0,0,0,0.6); }
+      }
+      
+      &:disabled { opacity: 0.5; cursor: wait; }
     }
   }
 }
 
-.actions {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-  justify-content: center;
-  
-  .btn {
-    padding: 10px 20px;
-    border-radius: 20px;
-    border: none;
-    cursor: pointer;
-    font-weight: bold;
-    text-transform: uppercase;
-    font-size: 0.8rem;
-    
-    &.primary { background: white; color: black; }
-    &.secondary { background: #333; color: white; }
-    
-    &:disabled { opacity: 0.5; cursor: not-allowed; }
-  }
-}
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+@keyframes flash { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+@keyframes flow { 0% { transform: scale(1); opacity: 0.2; } 100% { transform: scale(1.2); opacity: 0.4; } }
 
-.fade-enter-active, .fade-leave-active { transition: opacity 0.5s; }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.6s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+.up-enter-active, .up-leave-active { transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.up-enter-from, .up-leave-to { opacity: 0; transform: translateY(50px); }
+
 </style>
