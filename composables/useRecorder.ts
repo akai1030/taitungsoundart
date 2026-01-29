@@ -144,13 +144,29 @@ export const useRecorder = () => {
         await video.play() // Must play to get tracks and dimensions
         video.pause()
 
-        const width = video.videoWidth
-        const height = video.videoHeight
+        // Compatibility Fix: Resize to standard 1080p (max width) to ensure codec support
+        // High-res Retina screens (e.g. 2700px height) break Level 4.2 limits and confuse QuickTime
+        const MAX_WIDTH = 1080
+        const scale = Math.min(1, MAX_WIDTH / video.videoWidth)
+
+        let targetWidth = Math.round(video.videoWidth * scale)
+        let targetHeight = Math.round(video.videoHeight * scale)
+
+        // Ensure Even Dimensions
+        if (targetWidth % 2 !== 0) targetWidth--
+        if (targetHeight % 2 !== 0) targetHeight--
+
+        console.log(`UseRecorder: Resizing ${video.videoWidth}x${video.videoHeight} -> ${targetWidth}x${targetHeight}`)
+
+        const canvas = document.createElement('canvas')
+        canvas.width = targetWidth
+        canvas.height = targetHeight
+        const ctx = canvas.getContext('2d')!
 
         // Setup Output Muxer
         const muxer = new Mp4Muxer.Muxer({
             target: new Mp4Muxer.ArrayBufferTarget(),
-            video: { codec: 'avc', width, height },
+            video: { codec: 'avc', width: targetWidth, height: targetHeight },
             audio: {
                 codec: 'aac',
                 numberOfChannels: 2,
@@ -163,10 +179,12 @@ export const useRecorder = () => {
             output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
             error: e => console.error(e)
         })
+
+        // Use Main Profile Level 4.2 (Standard 1080p compatibility for Mobile/Desktop)
         videoEncoder.configure({
-            codec: 'avc1.42001f',
-            width, height,
-            bitrate: 4_000_000,
+            codec: 'avc1.4d002a',
+            width: targetWidth, height: targetHeight,
+            bitrate: 4_000_000, // 4Mbps is sufficient for 1080p
             framerate: 60
         })
 
@@ -181,33 +199,17 @@ export const useRecorder = () => {
             bitrate: 128_000
         })
 
-        // Prepare Canvas for Composition
-        const canvas = document.createElement('canvas')
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')!
-
         const frameImg = new Image()
         frameImg.src = frameSrc
         await new Promise(r => frameImg.onload = r)
 
-        // Frame processing loop
-        // We will "play" the video into the canvas + frame
-
-        // ... (Simpler approach: Just re-record logic ?)
-        // VideoEncoder approach is complex. 
-        // Let's stick to the previous working VideoEncoder implementation for composition
-        // BUT make it safer.
-
         return new Promise(async (resolve, reject) => {
             try {
                 // Audio Extraction from Source Video
-                // We must use a new AudioContext to decode/capture audio from the video element
                 const ac = new AudioContext()
                 const sourceNode = ac.createMediaElementSource(video)
                 const destNode = ac.createMediaStreamDestination()
                 sourceNode.connect(destNode)
-                // Don't connect to speaker (ac.destination) to avoid echo
 
                 const audioTrack = destNode.stream.getAudioTracks()[0]
                 const trackProcessor = new MediaStreamTrackProcessor({ track: audioTrack })
@@ -248,14 +250,19 @@ export const useRecorder = () => {
                         return
                     }
 
-                    ctx.drawImage(video, 0, 0, width, height)
-                    // Draw Logo (Top Right)
-                    const logoW = width * 0.15
+                    // Draw Scaled Video
+                    ctx.drawImage(video, 0, 0, targetWidth, targetHeight)
+
+                    // Draw Logo (Scaled relative to new dimensions)
+                    const logoW = targetWidth * 0.15
                     const logoH = (logoW / frameImg.width) * frameImg.height
-                    ctx.drawImage(frameImg, width - logoW - 20, 20, logoW, logoH)
+                    ctx.drawImage(frameImg, targetWidth - logoW - 20, 20, logoW, logoH)
+
+                    // Force KeyFrame every 2 seconds
+                    const isKeyFrame = metadata.mediaTime === 0 || (metadata.presentedFrames % 120 === 0)
 
                     const frame = new VideoFrame(canvas, { timestamp: metadata.mediaTime * 1e6 })
-                    videoEncoder.encode(frame)
+                    videoEncoder.encode(frame, { keyFrame: isKeyFrame })
                     frame.close()
 
                     video.requestVideoFrameCallback(processFrame)

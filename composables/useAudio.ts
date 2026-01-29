@@ -14,11 +14,15 @@ export const useAudio = () => {
         await Tone.start()
         console.log('Audio Context Started')
 
-        // Create Effects
+        // Check Mobile
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+        console.log('Audio Mode:', isMobile ? 'Mobile (Performance)' : 'Desktop (High Quality)')
+
+        // Create Effects (Lighter Reverb for Mobile)
         reverb = new Tone.Reverb({
-            decay: 4,
+            decay: isMobile ? 1.5 : 4, // Shorter decay on mobile
             preDelay: 0.1,
-            wet: 0.3
+            wet: isMobile ? 0.2 : 0.3
         }).toDestination()
 
         // Create Synth
@@ -30,7 +34,7 @@ export const useAudio = () => {
         }).connect(reverb)
 
         // Limit polyphony to avoid performance issues
-        synth.maxPolyphony = 10
+        synth.maxPolyphony = isMobile ? 4 : 10 // Reduce voices on mobile
 
         isReady.value = true
     }
@@ -38,15 +42,19 @@ export const useAudio = () => {
     const triggerSound = (x: number, y: number) => {
         if (!synth || !isReady.value) return
 
+        // Check Mobile again for modulation clamping
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+
         // Map X to Pitch (Quantized)
         const noteIndex = Math.floor(x * notes.length)
         const note = notes[Math.min(noteIndex, notes.length - 1)]
 
         // Map Y to Timbre (Modulation Index and Harmonicity)
-        // Inverting Y so top is higher intensity/brightness if desired, or keeping as is.
-        // Let's make Y affect brightness.
+        // Mobile: Tame the harshness (Modulation Index 1-5)
+        // Desktop: Full range (Modulation Index 1-10)
+        const maxMod = isMobile ? 5 : 10
         const harmonicity = 0.5 + (y * 3) // 0.5 to 3.5
-        const modulationIndex = 1 + (y * 10) // 1 to 11
+        const modulationIndex = 1 + (y * maxMod)
 
         synth.set({
             harmonicity: harmonicity,

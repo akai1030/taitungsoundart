@@ -157,6 +157,14 @@ const shareVideo = async () => {
   const blob = await getFinalBlob()
   if (!blob) return
   
+  // UX Enhancement: Auto-copy link for IG Link Sticker
+  try {
+    await navigator.clipboard.writeText(window.location.href)
+    // Optional: Small toast could go here, but we'll rely on the system share sheet delay or a quick alert
+  } catch (err) {
+    console.log('Clipboard write failed', err)
+  }
+  
   const file = new File([blob], 'sound-art-story.mp4', { type: 'video/mp4' })
   
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -164,7 +172,7 @@ const shareVideo = async () => {
       await navigator.share({
         files: [file],
         title: 'Sound Art',
-        text: 'Review my sound creation!'
+        text: 'Check out my sound creation! (Link copied to clipboard)' // Hint in text too
       })
     } catch (e) {
       console.log('Share canceled or failed', e)
