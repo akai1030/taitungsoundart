@@ -10,6 +10,9 @@
     :visible="false"
     @click="handlePointerDown"
     @pointer-move="handlePointerMove"
+    @pointer-up="handlePointerUp"
+    @pointer-leave="handlePointerUp"
+    @pointer-missed="handlePointerUp"
   >
     <TresPlaneGeometry :args="[20, 20]" />
     <TresMeshBasicMaterial :transparent="true" :opacity="0" />
@@ -54,24 +57,42 @@ const cursorRef = ref()
 const ripples = ref<{id: string, x: number, y: number, scale: number, opacity: number, color: string}[]>([])
 
 // --- Interaction Handlers ---
+// --- Interaction Handlers ---
+const isDragging = ref(false)
+const lastTriggerTime = ref(0)
+const TRIGGER_THROTTLE = 100 // ms between triggers during drag
+
 const handlePointerMove = (ev: any) => {
   if (cursorRef.value) {
     cursorRef.value.position.x = ev.point.x
     cursorRef.value.position.y = ev.point.y
   }
+
+  // Drag Logic
+  if (isDragging.value) {
+    const now = Date.now()
+    if (now - lastTriggerTime.value > TRIGGER_THROTTLE) {
+      triggerInteraction(ev.point.x, ev.point.y)
+      lastTriggerTime.value = now
+    }
+  }
 }
 
 const handlePointerDown = async (ev: any) => {
+  isDragging.value = true
   await initAudio()
+  triggerInteraction(ev.point.x, ev.point.y)
+}
 
-  const x = ev.point.x
-  const y = ev.point.y
+const handlePointerUp = () => {
+  isDragging.value = false
+}
 
+const triggerInteraction = (x: number, y: number) => {
   // Trigger Sound (Normalized X/Y based on assumed plane size 20x20)
   const normX = (x + 10) / 20
   const normY = (y + 10) / 20
   triggerSound(normX, normY)
-
   createRipple(x, y)
 }
 

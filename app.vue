@@ -134,20 +134,43 @@ const reset = () => {
 const isProcessing = ref(false)
 const { composeVideo } = useRecorder()
 
-// Helper: Get Final Processed Blob
+// Helper: Get Final Processed Blob (Server-Side)
 const getFinalBlob = async () => {
   if (!recordedBlob.value) return null
   
   isProcessing.value = true
   try {
-     await new Promise(r => setTimeout(r, 100)) // UI Update
-     // @ts-ignore
-     const blob = await composeVideo(recordedBlob.value, selectedFrame.value || '')
+     // Create FormData
+     const formData = new FormData()
+     formData.append('video', recordedBlob.value, 'recording.webm')
+     if (selectedFrame.value) {
+         formData.append('frame', selectedFrame.value)
+     }
+
+     console.log('Uploading to server for processing...')
+     
+     // Call API
+     const response = await fetch('/api/process-video', {
+         method: 'POST',
+         body: formData
+     })
+
+     if (!response.ok) {
+         throw new Error('Server processing failed')
+     }
+
+     const blob = await response.blob()
      return blob
+
   } catch (e) {
      console.error('Processing failed', e)
-     alert('Processing failed. Using raw video.')
-     return recordedBlob.value // Fallback
+     // Fallback to raw if server fails
+     const confirmRaw = confirm('雲端轉檔失敗 (可能是網路問題)。是否下載原始錄影檔？')
+     if (confirmRaw) {
+         return recordedBlob.value 
+     } else {
+         return null
+     }
   } finally {
      isProcessing.value = false
   }

@@ -47,7 +47,16 @@ export const useRecorder = () => {
 
             // Connect Tone's Master Output to this destination
             // This allows us to hear the sound AND record it
+            // CRITICAL: Tone.getDestination() acts as a splitter. 
+            // It MUST remain connected to Context.destination (speakers).
+            // Connecting to streamDestination adds a second path.
             Tone.getDestination().connect(streamDestination)
+
+            // Re-assert speaker connection just in case (though Tone does this by default)
+            if (Tone.context.state === 'running') {
+                // Tone.getDestination().toDestination() is implied but let's be safe:
+                // Actually this logic is redundant in Tone.js, but let's verify context is resumed.
+            }
 
             // 2. Video Stream from Canvas
             // captureStream(60) might be too aggressive for some devices, trying 30 if 60 fails? 
